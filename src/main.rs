@@ -221,10 +221,7 @@ async fn main() {
                     std::process::exit(0);
                 } else {
                     // Convert ExitStatus to exit code
-                    let exit_code = match status.code() {
-                        Some(code) => code,
-                        None => 137, // Killed by signal
-                    };
+                    let exit_code = status.code().unwrap_or(137); // 137: Killed by signal
                     std::process::exit(exit_code);
                 }
             }
