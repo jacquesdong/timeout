@@ -45,14 +45,14 @@ fn parse_duration(duration: &str) -> Result<f64, String> {
         return Ok(0.0);
     }
 
-    let (num_str, unit) = if duration.ends_with('s') {
-        (&duration[..duration.len() - 1], 1.0)
-    } else if duration.ends_with('m') {
-        (&duration[..duration.len() - 1], 60.0)
-    } else if duration.ends_with('h') {
-        (&duration[..duration.len() - 1], 3600.0)
-    } else if duration.ends_with('d') {
-        (&duration[..duration.len() - 1], 86400.0)
+    let (num_str, unit) = if let Some(stripped) = duration.strip_suffix('s') {
+        (stripped, 1.0)
+    } else if let Some(stripped) = duration.strip_suffix('m') {
+        (stripped, 60.0)
+    } else if let Some(stripped) = duration.strip_suffix('h') {
+        (stripped, 3600.0)
+    } else if let Some(stripped) = duration.strip_suffix('d') {
+        (stripped, 86400.0)
     } else {
         (duration, 1.0)
     };
