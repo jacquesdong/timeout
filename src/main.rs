@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::process::ExitStatus;
 use tokio::process::Command;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -9,29 +9,29 @@ pub struct Args {
     /// Duration after which to kill the command
     #[arg(short = 'k', long = "kill-after")]
     pub kill_after: Option<String>,
-    
+
     /// Signal to send on timeout
     #[arg(short = 's', long = "signal", default_value = "TERM")]
     pub signal: String,
-    
+
     /// Diagnose to stderr any signal sent upon timeout
     #[arg(short = 'v', long = "verbose")]
     pub verbose: bool,
-    
+
     /// Exit with the same status as COMMAND, even when the command times out
     #[arg(long = "preserve-status")]
     pub preserve_status: bool,
-    
+
     /// When not running timeout directly from a shell prompt, allow COMMAND to read from the TTY and get TTY signals
     #[arg(long = "foreground")]
     pub foreground: bool,
-    
+
     /// Duration before sending signal
     pub duration: Option<String>,
-    
+
     /// Command to run
     pub command: Option<String>,
-    
+
     /// Arguments to pass to the command
     pub args: Vec<String>,
 }
@@ -40,23 +40,23 @@ pub struct Args {
 /// Supported formats: "10", "10s", "10m", "10h", "10d"
 fn parse_duration(duration: &str) -> Result<f64, String> {
     let duration = duration.trim();
-    
+
     if duration == "0" {
         return Ok(0.0);
     }
-    
+
     let (num_str, unit) = if duration.ends_with('s') {
-        (&duration[..duration.len()-1], 1.0)
+        (&duration[..duration.len() - 1], 1.0)
     } else if duration.ends_with('m') {
-        (&duration[..duration.len()-1], 60.0)
+        (&duration[..duration.len() - 1], 60.0)
     } else if duration.ends_with('h') {
-        (&duration[..duration.len()-1], 3600.0)
+        (&duration[..duration.len() - 1], 3600.0)
     } else if duration.ends_with('d') {
-        (&duration[..duration.len()-1], 86400.0)
+        (&duration[..duration.len() - 1], 86400.0)
     } else {
         (duration, 1.0)
     };
-    
+
     match num_str.parse::<f64>() {
         Ok(num) => Ok(num * unit),
         Err(_) => Err(format!("Invalid duration format: {}", duration)),
@@ -69,7 +69,7 @@ fn parse_signal(signal: &str) -> Result<i32, String> {
     if let Ok(num) = signal.parse::<i32>() {
         return Ok(num);
     }
-    
+
     // Try to parse as signal name
     match signal.to_uppercase().as_str() {
         "TERM" => Ok(libc::SIGTERM),
@@ -94,11 +94,11 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
     let Some(ref command) = args.command else {
         return Err("Command is required".to_string());
     };
-    
+
     let Some(ref duration_str) = args.duration else {
         return Err("Duration is required".to_string());
     };
-    
+
     let duration_secs = parse_duration(duration_str)?;
     if duration_secs <= 0.0 {
         // Duration 0 means no timeout
@@ -115,12 +115,12 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
         for arg in &args.args {
             cmd.arg(arg);
         }
-        
+
         let mut child = match cmd.spawn() {
             Ok(child) => child,
             Err(e) => return Err(format!("Failed to spawn command: {}", e)),
         };
-        
+
         let duration = Duration::from_secs_f64(duration_secs);
         tokio::select! {
             result = child.wait() => {
@@ -134,7 +134,7 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
                 if args.verbose {
                     eprintln!("Sending {} signal to command", args.signal);
                 }
-                
+
                 // Send initial signal
                 let signal = parse_signal(&args.signal)?;
                 let Some(pid) = child.id() else {
@@ -145,7 +145,7 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
                         return Err(format!("Failed to send signal {} to command", args.signal));
                     }
                 }
-                
+
                 // Check if kill-after is specified
                 if let Some(ref kill_after_str) = args.kill_after {
                     let kill_after_secs = parse_duration(kill_after_str)?;
@@ -153,7 +153,7 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
                         if args.verbose {
                             eprintln!("Waiting {} seconds before sending KILL signal", kill_after_secs);
                         }
-                        
+
                         let kill_after_duration = Duration::from_secs_f64(kill_after_secs);
                         tokio::select! {
                             result = child.wait() => {
@@ -167,11 +167,11 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
                                 if args.verbose {
                                     eprintln!("Sending KILL signal to command");
                                 }
-                                
+
                                 if let Err(e) = child.kill().await {
                                     return Err(format!("Failed to kill command: {}", e));
                                 }
-                                
+
                                 // Wait for command to exit
                                 match child.wait().await {
                                     Ok(status) => Ok((status, true)),
@@ -201,13 +201,13 @@ async fn run_with_timeout(args: &Args) -> Result<(ExitStatus, bool), String> {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    
+
     // Check if command and duration are provided
     if args.command.is_none() || args.duration.is_none() {
         eprintln!("Usage: timeout [OPTIONS] DURATION COMMAND [ARG]...");
         std::process::exit(125);
     }
-    
+
     // Run command with timeout
     match run_with_timeout(&args).await {
         Ok((status, timed_out)) => {
@@ -228,7 +228,7 @@ async fn main() {
                     std::process::exit(exit_code);
                 }
             }
-        },
+        }
         Err(e) => {
             eprintln!("Error: {}", e);
             // Determine error exit code
